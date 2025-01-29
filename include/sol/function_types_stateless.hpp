@@ -319,6 +319,7 @@ namespace sol { namespace function_detail {
 			}
 		}
 
+#if defined(__clang__)
 		template <bool is_yielding, bool no_trampoline>
 		static int call(lua_State* L) /*noexcept(std::is_nothrow_copy_assignable_v<T>)*/ {
 			int nr;
@@ -335,6 +336,24 @@ namespace sol { namespace function_detail {
 				return nr;
 			}
 		}
+#else
+		template <bool is_yielding, bool no_trampoline>
+		static int call(lua_State* L) noexcept(std::is_nothrow_copy_assignable_v<T>) {
+			int nr;
+			if constexpr (no_trampoline) {
+				nr = real_call(L);
+			}
+			else {
+				nr = detail::typed_static_trampoline<decltype(&real_call), (&real_call)>(L);
+			}
+			if (is_yielding) {
+				return lua_yield(L, nr);
+			}
+			else {
+				return nr;
+			}
+		}
+#endif
 
 		int operator()(lua_State* L) noexcept(std::is_nothrow_copy_assignable_v<T>) {
 			return call(L);
